@@ -131,17 +131,17 @@ fn main() {
     let socket = match UdpSocket::bind("127.0.0.1:1234") {
         Ok(s) => s,
         Err(e) => {
-            io::stderr().write(format!("failed to create socket: {}", e).as_bytes());
+            io::stderr().write(format!("failed to create socket: {}", e).as_bytes()).unwrap();
             return;
         }
     };
 
     loop {
         let mut buf = [0; 1024];
-        let (amt, src) = match socket.recv_from(&mut buf) {
+        let (amt, _src) = match socket.recv_from(&mut buf) {
             Ok((a, s)) => (a, s),
             Err(e) => {
-                io::stderr().write(b"failed to read from socket");
+                io::stderr().write(format!("failed to read from socket: {}", e).as_bytes()).unwrap();
                 continue;
             }
         };
