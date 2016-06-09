@@ -51,6 +51,55 @@ impl Header {
     }
 }
 
+/// Question type (kind of record they want)
+#[derive(Debug)]
+enum QType {
+    A,
+    NS,
+    CNAME,
+    SOA,
+    WKS,
+    PTR,
+    MX,
+    SRV,
+    AAAA,
+    ANY,
+}
+
+impl QType {
+    fn from_u16(n: u16) -> Option<QType> {
+        match n {
+            1   => Some(QType::A),
+            2   => Some(QType::NS),
+            5   => Some(QType::CNAME),
+            6   => Some(QType::SOA),
+            11  => Some(QType::WKS),
+            12  => Some(QType::PTR),
+            15  => Some(QType::MX),
+            28  => Some(QType::AAAA),
+            33  => Some(QType::SRV),
+            255 => Some(QType::ANY),
+            _ => None,
+        }
+
+    }
+}
+
+/// Question class (for now just the Internet)
+#[derive(Debug)]
+enum QClass {
+    IN,
+}
+
+impl QClass {
+    fn from_u16(n: u16) -> Option<QClass> {
+        match n {
+            1   => Some(QClass::IN),
+            _   => None,
+        }
+    }
+}
+
 fn parse_u16(buf: &[u8]) -> u16 {
     let higher = buf[0] as u16;
     let lower = buf[1] as u16;
@@ -89,8 +138,8 @@ fn parse_recursion(n: u8) -> bool {
 #[derive(Debug)]
 struct Question<'a> {
     qname: Vec<Cow<'a, str>>,
-    qtype: u16,
-    qclass: u16,
+    qtype: QType,
+    qclass: QClass,
     // Length of the record in the buffer
     len: usize,
 }
@@ -105,7 +154,7 @@ fn parse_question_part(buf: &[u8]) -> (usize, Option<Cow<str>>) {
     }
 }
 
-fn parse_question(buf: &[u8]) -> Question {
+fn parse_question(buf: &[u8]) -> Option<Question> {
     let mut v = Vec::new();
     let mut off: usize = 0;
 
@@ -119,12 +168,22 @@ fn parse_question(buf: &[u8]) -> Question {
         }
     }
 
-    Question {
+    let qtype = match QType::from_u16(parse_u16(&buf[off+1..])) {
+        Some(q) => q,
+        None => return None,
+    };
+
+    let qclass = match QClass::from_u16(parse_u16(&buf[off+3..])) {
+        Some(c) => c,
+        None => return None,
+    };
+
+    Some(Question {
         qname: v,
-        qtype: parse_u16(&buf[off+1..]),
-        qclass: parse_u16(&buf[off+3..]),
+        qtype: qtype,
+        qclass: qclass,
         len: off + 4,
-    }
+    })
 }
 
 fn main() {
